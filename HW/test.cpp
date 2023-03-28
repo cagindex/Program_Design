@@ -5,14 +5,10 @@
 #include<iostream>
 using namespace std;
 
-
-int *b;
 int main(){
-    int* a;
-    int c = 123;
-    cout << (void *) a << endl;
-    // cout <<  *b << endl; Segmentation falut
-    cout << (void *) b << endl;
-    cout << sizeof(c) << endl;
+    string a;
+    cin >> a;
+    cout << (string::npos == a.find('+')) << "\n";
+    cout << a << endl;
     return 0;
 }
