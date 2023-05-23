@@ -1,10 +1,37 @@
+/*****************************
+完成对象的构造函数、对应属性以及基本变量。
+*****************************/
+#include<iostream>
+#include<cstring>
+#define INTMAX 0x7fffffff
+using std::cout;
+using std::endl;
+using std::string;
 class warrior;
 class weapon;
 class baseCity;
+class dragon;
+class ninja;
+class lion;
+class wolf;
+class iceman;
+class city;
+class headquarter;
+class sword;
+class arrow;
+class bomb;
+
+/**
+    basic variable
+*/
+int M, N, R, K, T;
+int battle_bonus = 8;
+int city_health_round = 10;
+
 /**
  * basic function declartion
 */
-void AddWeapon(weapon*& , int);
+void CreateWeapon(warrior*, weapon*& , int);
 
 /**
  * base class start
@@ -17,6 +44,7 @@ class warrior
         char flag;
     public:
         warrior(char _f, int _id = 0, int _health = 0, int _atk = 0):id(_id),health(_health),atk(_atk),flag(_f){}
+        friend void CreateWeapon(warrior*, weapon*&, int);
 };
 
 //base class for headquarter and city
@@ -25,6 +53,8 @@ class baseCity
     private:
         int position;
         char flag;
+        warrior* warrior_red = nullptr;
+        warrior* warrior_blue = nullptr;
     public:
         baseCity(char _f, int _pos = 0):position(_pos),flag(_f){}
 };
@@ -54,7 +84,7 @@ class dragon : public warrior
     public:
         dragon(char _f, int _id = 0, int _health = 0, int _atk = 0, double _morale = 0):warrior(_f, _id, _health, _atk),morale(_morale)
         {
-            AddWeapon(weapon_dragon, _id%3);
+            CreateWeapon(this, weapon_dragon, _id%3);
         }
 };
 
@@ -65,8 +95,8 @@ class ninja : public warrior
     public:
         ninja(char _f, int _id = 0, int _health = 0, int _atk = 0):warrior(_f, _id, _health, _atk)
         {
-            AddWeapon(weapon_ninja1, _id%3);
-            AddWeapon(weapon_ninja1, (_id+1)%3);
+            CreateWeapon(this, weapon_ninja1, _id%3);
+            CreateWeapon(this, weapon_ninja1, (_id+1)%3);
         }
 };
 
@@ -77,7 +107,7 @@ class iceman : public warrior
     public:
         iceman(char _f, int _id = 0, int _health = 0, int _atk = 0):warrior(_f, _id, _health, _atk)
         {
-            AddWeapon(weapon_iceman, _id%3);
+            CreateWeapon(this, weapon_iceman, _id%3);
         }
 };
 
@@ -105,27 +135,59 @@ class wolf : public warrior
 class city : public baseCity
 {
     private:
-        warrior* warrior_red = nullptr;
-        warrior* warrior_blue = nullptr;
+        int city_health = 0;
     public:
         city(char _f, int _pos = 0):baseCity(_f, _pos){}
 };
 
+// headquarter class for both side
 class headquarter : public baseCity
 {
     private:
-        warrior** warrior_red;
-        warrior** warrior_blue;
+        int health = M;
+        warrior* Other_warrior = nullptr;
     public:
         headquarter(char _f, int _pos = 0):baseCity(_f, _pos){}
 };
 
 // weapon class
+class sword : public weapon
+{
+    public:
+        sword(int _atk):weapon((int)(_atk/5)){}
+};
 
+class arrow : public weapon
+{
+    private:
+        int durity = 3;
+    public:
+        arrow(int _atk):weapon(_atk){}
+};
+
+class bomb : public weapon
+{
+    public:
+        bomb():weapon(INTMAX){}
+};
 /**
  * Derived class end
 */
 
 /**
- * basic function
+ * basic function implement
 */
+void CreateWeapon(warrior* warrior_pointer, weapon*& weapon_pointer, int id)
+{
+    switch(id)
+    {
+        case 0 : weapon_pointer = new sword(warrior_pointer->atk); break;
+        case 1 : weapon_pointer = new arrow(R); break;
+        case 2 : weapon_pointer = new bomb(); break;
+    }
+}
+
+
+int main(){
+    return 0;
+}
