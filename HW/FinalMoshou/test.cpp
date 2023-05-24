@@ -3,11 +3,18 @@
 #include<map>
 #include<iomanip>
 using namespace std;
-
+class A{
+    private:
+        int a= 3;
+    public:
+        int& show(){return a;}
+        int see(){return a;}
+};
 
 int main(){
-    double a = 3.146;
-    cout << fixed << setprecision(2) << a << endl;
-    printf("%.2f\n", a);
+    A a;
+    int&  c = a.show(); 
+    c = 4;
+    cout << a.see() << endl;
     return 0;
 }
