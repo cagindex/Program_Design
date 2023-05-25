@@ -8,6 +8,7 @@
 完成CityGenerateHealth模块
 完成ClaimCityHealth模块
 完成HeadquarterReport模块
+完成ArrowAttack模块
 *****************************/
 #include<iostream>
 #include<cstring>
@@ -63,7 +64,11 @@ class warrior
         char flag;
     public:
         warrior(char _f, int _id = 0, int _health = 0, int _atk = 0):id(_id),health(_health),atk(_atk),flag(_f){}
+        void ChangeHealth(int i) {health += i;}
+        void ChangeHealthTo(int h) {health = h;}
         virtual int TellMeYourLoyalty() {return 1;};
+        virtual bool HasArrow() = 0;
+        virtual void UseArrow(warrior* other_warrior) = 0;
         friend void CreateWeapon(warrior*, weapon*&, int);
         friend class gameMap;
 };
@@ -90,10 +95,15 @@ class baseCity
 //base class for sword arrow and bomb
 class weapon
 {
-    private:
+    protected:
         int atk;
     public:
         weapon(int _atk = 0):atk(_atk){}
+        int& GiveMeYourAtk() {return atk;}
+        virtual bool IsArrow() = 0;
+        virtual bool IsSword() = 0;
+        virtual int TellMeYourDurity() {return atk;}
+        virtual void Attack(warrior* other_warrior) = 0;
 };
 /**
  * base class end
@@ -115,18 +125,39 @@ class dragon : public warrior
             CreateWeapon(this, weapon_dragon, _id%3);
             BornReport(_f, _id, morale);
         }
+        virtual bool HasArrow() {if(weapon_dragon->IsArrow()) return true; return false;}
+        virtual void UseArrow(warrior* other_warrior)
+        {
+            if(weapon_dragon->IsArrow())
+            {
+                weapon_dragon->Attack(other_warrior);
+            }
+        }
 };
 
 class ninja : public warrior
 {
     private:
-        weapon* weapon_ninja1, weapon_ninja2;
+        weapon* weapon_ninja1;
+        weapon* weapon_ninja2;
     public:
         ninja(char _f, int _id = 0, int _health = 0, int _atk = 0):warrior(_f, _id, _health, _atk)
         {
             CreateWeapon(this, weapon_ninja1, _id%3);
             CreateWeapon(this, weapon_ninja1, (_id+1)%3);
             BornReport(_f, _id);
+        }
+        virtual bool HasArrow() {if(weapon_ninja1->IsArrow() || weapon_ninja2->IsArrow()) return true; return false;}
+        virtual void UseArrow(warrior* other_warrior)
+        {
+            if(weapon_ninja1->IsArrow())
+            {
+                weapon_ninja1->Attack(other_warrior);
+            }
+            if(weapon_ninja2->IsArrow())
+            {
+                weapon_ninja2->Attack(other_warrior);
+            }
         }
 };
 
@@ -140,6 +171,14 @@ class iceman : public warrior
             CreateWeapon(this, weapon_iceman, _id%3);
             BornReport(_f, _id);
         }
+        virtual bool HasArrow() {if(weapon_iceman->IsArrow()) return true; return false;}
+        virtual void UseArrow(warrior* other_warrior)
+        {
+            if(weapon_iceman->IsArrow())
+            {
+                weapon_iceman->Attack(other_warrior);
+            }
+        }
 };
 
 class lion : public warrior
@@ -152,6 +191,8 @@ class lion : public warrior
             BornReport(_f, _id, 0.0, loyalty);
         }
         virtual int TellMeYourLoyalty() {return loyalty;}
+        virtual bool HasArrow() {return false;}
+        virtual void UseArrow(warrior* other_warrior){}
 };
 
 class wolf : public warrior
@@ -164,6 +205,14 @@ class wolf : public warrior
             weapon_wolf = new weapon*[3];
             for(int i = 0; i < 3; ++i) weapon_wolf[i] = nullptr;
             BornReport(_f, _id);
+        }
+        virtual bool HasArrow() {if(weapon_wolf[1] != nullptr) return true; return false;}
+        virtual void UseArrow(warrior* other_warrior)
+        {
+            if(weapon_wolf[1] != nullptr)
+            {
+                weapon_wolf[1]->Attack(other_warrior);
+            }
         }
 };
 
@@ -205,6 +254,14 @@ class sword : public weapon
 {
     public:
         sword(int _atk):weapon((int)(_atk/5)){}
+        virtual bool IsSword() {return true;}
+        virtual bool IsArrow() {return false;}
+        virtual void Attack(warrior* other_warrior)
+        {
+            int& now_atk = GiveMeYourAtk();
+            other_warrior->ChangeHealth(-1*now_atk);
+            now_atk = now_atk*4/5;
+        }
 };
 
 class arrow : public weapon
@@ -213,12 +270,31 @@ class arrow : public weapon
         int durity;
     public:
         arrow(int __durity, int _atk):durity(__durity),weapon(_atk){}
+        virtual bool IsArrow() {return true;}
+        virtual bool IsSword() {return false;}
+        virtual int TellMeYourDurity() {return durity;}
+        virtual void Attack(warrior* other_warrior)
+        {
+            int& now_atk = GiveMeYourAtk();
+            other_warrior->ChangeHealth(-1*now_atk);
+            durity -= 1;
+        }
 };
 
 class bomb : public weapon
 {
+    private:
+        int durity = 1;
     public:
         bomb():weapon(INTMAX){}
+        virtual bool IsArrow() {return false;}
+        virtual bool IsSword() {return false;}
+        virtual int TellMeYourDurity() {return durity;}
+        virtual void Attack(warrior* other_warrior)
+        {
+            other_warrior->ChangeHealthTo(0);
+            durity--;
+        }
 };
 /**
  * Derived class end
@@ -348,7 +424,19 @@ class gameMap
         //Give Arrow attack
         void ArrowAttack()
         {
-
+            int i;
+            //For red
+            for(i = N-1; i > 0; --i)
+            {
+                if(citys[i+1]->warrior_blue != nullptr && citys[i]->warrior_red != nullptr)
+                    if(citys[i]->warrior_red->HasArrow()) citys[i]->warrior_red->UseArrow(citys[i+1]->warrior_blue);
+            }
+            //For blue
+            for(i = 2; i < N+1; ++i)
+            {
+                if(citys[i-1]->warrior_red != nullptr && citys[i]->warrior_blue != nullptr)
+                    if(citys[i]->warrior_blue->HasArrow()) citys[i]->warrior_blue->UseArrow(citys[i-1]->warrior_red);
+            }
         }
 
         //Use bomb
