@@ -15,8 +15,8 @@
 #include<map>
 #include<iomanip>
 #define INTMAX 0x7fffffff
-#define DEBUG
-#define MUTE
+// #define DEBUG
+// #define MUTE
 using std::cout;
 using std::cin;
 using std::endl;
@@ -52,6 +52,9 @@ std::map<string, int> warrior_set_reverse =
 */
 void BornReport(char flag, int id, double morale = 0.0, int loyalty = 0);
 void CreateWeapon(warrior*, weapon*&, int);
+void TransformWeaponReport(string&, string&, string&);
+int TellMeTheHour();
+int TellMeTheMin();
 
 /**
  * base class start
@@ -69,6 +72,7 @@ class warrior
         virtual int TellMeYourLoyalty() {return 1;};
         virtual bool HasArrow() = 0;
         virtual void UseArrow(warrior* other_warrior) = 0;
+        virtual void ReportYourWeapon() = 0;
         friend void CreateWeapon(warrior*, weapon*&, int);
         friend class gameMap;
 };
@@ -100,8 +104,16 @@ class weapon
     public:
         weapon(int _atk = 0):atk(_atk){}
         int& GiveMeYourAtk() {return atk;}
+        int CheckWeapon()
+        {
+            if(IsSword()) return 0;
+            else if(IsArrow()) return 1;
+            else if(IsBomb()) return 2;
+            return 3;
+        }
         virtual bool IsArrow() = 0;
         virtual bool IsSword() = 0;
+        virtual bool IsBomb() = 0;
         virtual int TellMeYourDurity() {return atk;}
         virtual void Attack(warrior* other_warrior) = 0;
 };
@@ -133,6 +145,17 @@ class dragon : public warrior
                 weapon_dragon->Attack(other_warrior);
             }
         }
+        virtual void ReportYourWeapon()
+        {
+            int hour = TellMeTheHour(), min = TellMeTheMin();
+            string f = ((flag == 'R') ? "red" : "blue");
+
+            printf("%03d:%02d ", hour, min);
+            if(weapon_dragon == nullptr){printf("%s dragon %d has no weapon\n", f.c_str(), id+1);}
+            else if(weapon_dragon->IsArrow()){printf("%s dragon %d has arrow(%d)\n", f.c_str(), id+1, weapon_dragon->TellMeYourDurity());}
+            else if(weapon_dragon->IsSword()){printf("%s dragon %d has sword(%d)\n", f.c_str(), id+1, weapon_dragon->GiveMeYourAtk());}
+            else if(weapon_dragon->IsBomb()){printf("%s dragon %d has bomb\n", f.c_str(), id+1);}
+        }
 };
 
 class ninja : public warrior
@@ -159,6 +182,30 @@ class ninja : public warrior
                 weapon_ninja2->Attack(other_warrior);
             }
         }
+        virtual void ReportYourWeapon()
+        {
+            int hour = TellMeTheHour(), min = TellMeTheMin();
+            string f = ((flag == 'R') ? "red" : "blue");
+            string arrow = "", bomb = "", sword = "", tmp;
+            auto Allocate = [&arrow, &bomb, &sword](weapon* this_weapon)->void
+            {   
+                if(this_weapon == nullptr) return;
+                int tmp;
+                switch(this_weapon->CheckWeapon())
+                {
+                    case 0: tmp = this_weapon->GiveMeYourAtk(); sword = ("sword(" + std::to_string(tmp) + ")");break; 
+                    case 1: tmp = this_weapon->TellMeYourDurity(); arrow = ("arrow(" + std::to_string(tmp) + ")"); break;
+                    case 2: bomb = "bomb";
+                }
+            };
+            Allocate(weapon_ninja1);
+            Allocate(weapon_ninja2);
+            if(arrow.length() == 0 && bomb.length() == 0 && sword.length() == 0)
+            {printf("%03d:%02d %s ninja %d has no weapon\n", hour, min, f.c_str(), id+1); return;}
+            TransformWeaponReport(arrow, bomb, sword);
+            tmp = arrow+bomb+sword;
+            printf("%03d:%02d %s ninja %d has %s\n", hour, min, f.c_str(), id+1, tmp.c_str());
+        }
 };
 
 class iceman : public warrior
@@ -179,6 +226,17 @@ class iceman : public warrior
                 weapon_iceman->Attack(other_warrior);
             }
         }
+        virtual void ReportYourWeapon()
+        {
+            int hour = TellMeTheHour(), min = TellMeTheMin();
+            string f = ((flag == 'R') ? "red" : "blue");
+
+            printf("%03d:%02d ", hour, min);
+            if(weapon_iceman == nullptr){printf("%s iceman %d has no weapon\n", f.c_str(), id+1);}
+            else if(weapon_iceman->IsArrow()){printf("%s iceman %d has arrow(%d)\n", f.c_str(), id+1, weapon_iceman->TellMeYourDurity());}
+            else if(weapon_iceman->IsSword()){printf("%s iceman %d has sword(%d)\n", f.c_str(), id+1, weapon_iceman->GiveMeYourAtk());}
+            else if(weapon_iceman->IsBomb()){printf("%s iceman %d has bomb\n", f.c_str(), id+1);}
+        }
 };
 
 class lion : public warrior
@@ -193,6 +251,12 @@ class lion : public warrior
         virtual int TellMeYourLoyalty() {return loyalty;}
         virtual bool HasArrow() {return false;}
         virtual void UseArrow(warrior* other_warrior){}
+        virtual void ReportYourWeapon()
+        {
+            int hour = TellMeTheHour(), min = TellMeTheMin();
+            string f = ((flag == 'R') ? "red" : "blue");
+            printf("%03d:%02d %s lion %d has no weapon\n", hour, min, f.c_str(), id+1);
+        }
 };
 
 class wolf : public warrior
@@ -213,6 +277,29 @@ class wolf : public warrior
             {
                 weapon_wolf[1]->Attack(other_warrior);
             }
+        }
+        virtual void ReportYourWeapon()
+        {
+            int hour = TellMeTheHour(), min = TellMeTheMin();
+            string f = ((flag == 'R') ? "red" : "blue");
+            string arrow = "", bomb = "", sword = "", tmp;
+            auto Allocate = [&arrow, &bomb, &sword](weapon* this_weapon)->void
+            {   
+                if(this_weapon == nullptr) return;
+                int tmp;
+                switch(this_weapon->CheckWeapon())
+                {
+                    case 0: tmp = this_weapon->GiveMeYourAtk(); sword = ("sword(" + std::to_string(tmp) + ")");break; 
+                    case 1: tmp = this_weapon->TellMeYourDurity(); arrow = ("arrow(" + std::to_string(tmp) + ")"); break;
+                    case 2: bomb = "bomb";
+                }
+            };
+            for(int i = 0; i < 3; i++) Allocate(weapon_wolf[i]);
+            if(arrow.length() == 0 && bomb.length() == 0 && sword.length() == 0)
+            {printf("%03d:%02d %s wolf has no weapon\n", hour, min, f.c_str(), id+1);return;}
+            TransformWeaponReport(arrow, bomb, sword);
+            tmp = arrow+bomb+sword;
+            printf("%03d:%02d %s wolf %d has %s\n", hour, min, f.c_str(), id+1, tmp.c_str());
         }
 };
 
@@ -256,6 +343,7 @@ class sword : public weapon
         sword(int _atk):weapon((int)(_atk/5)){}
         virtual bool IsSword() {return true;}
         virtual bool IsArrow() {return false;}
+        virtual bool IsBomb() {return false;}
         virtual void Attack(warrior* other_warrior)
         {
             int& now_atk = GiveMeYourAtk();
@@ -272,6 +360,7 @@ class arrow : public weapon
         arrow(int __durity, int _atk):durity(__durity),weapon(_atk){}
         virtual bool IsArrow() {return true;}
         virtual bool IsSword() {return false;}
+        virtual bool IsBomb() {return false;}
         virtual int TellMeYourDurity() {return durity;}
         virtual void Attack(warrior* other_warrior)
         {
@@ -289,6 +378,7 @@ class bomb : public weapon
         bomb():weapon(INTMAX){}
         virtual bool IsArrow() {return false;}
         virtual bool IsSword() {return false;}
+        virtual bool IsBomb() {return true;}
         virtual int TellMeYourDurity() {return durity;}
         virtual void Attack(warrior* other_warrior)
         {
@@ -464,7 +554,12 @@ class gameMap
         //Warriors report their situation
         void WarriorsReport()
         {
-
+        #ifdef MUTE
+        #else
+            int i;
+            for(i = 0; i < N+2; ++i) if(citys[i]->warrior_red != nullptr) citys[i]->warrior_red->ReportYourWeapon();
+            for(i = 0; i < N+2; ++i) if(citys[i]->warrior_blue != nullptr) citys[i]->warrior_blue->ReportYourWeapon();
+        #endif
         }
 
         void StartGame()
@@ -479,6 +574,7 @@ class gameMap
                 min += 5;
                 if(GameOver(hour,min)) break;
                 MoveForward();
+                Visualize();
                 min += 10;
                 if(GameOver(hour,min)) break;
                 CityGenerateHealth();
@@ -587,13 +683,16 @@ class gameMap
         }
         inline void __MoveReportRed(warrior* this_warrior)
         {
-            string name = red_headquarter_warrior[(this_warrior->id)%warrior_kind];
+        #ifdef MUTE
+        #else
+            string name = blue_headquarter_warrior[(this_warrior->id)%warrior_kind];
             printf("%03d:%02d blue %s %d reached red headquarter with %d elements and force %d\n",
             hour, min, name.c_str(), (this_warrior->id)+1,  this_warrior->health, this_warrior->atk);
+        #endif
         }
         inline void __MoveReportBlue(warrior* this_warrior)
         {
-            string name = blue_headquarter_warrior[(this_warrior->id)%warrior_kind];
+            string name = red_headquarter_warrior[(this_warrior->id)%warrior_kind];
             printf("%03d:%02d red %s %d reached blue headquarter with %d elements and force %d\n",
             hour, min, name.c_str(), (this_warrior->id)+1, this_warrior->health, this_warrior->atk);
         }
@@ -659,6 +758,9 @@ class gameMap
                 case 2 : weapon_pointer = new bomb(); break;
             }
         }
+
+        inline int TellMeHour() {return hour;}
+        inline int TellMeMin() {return min;}
 
         // For debugging
         void Visualize()
@@ -741,6 +843,15 @@ void CreateWeapon(warrior* warrior_pointer, weapon*& weapon_pointer, int id)
 {
     gameMap::CreateWeapon(warrior_pointer, weapon_pointer, id);
 }
+
+void TransformWeaponReport(string& arrow, string& bomb, string& sword)
+{
+    if(arrow.length() != 0 && bomb.length() != 0) bomb = "," + bomb;
+    if((arrow.length() != 0 || bomb.length() != 0) && sword.length() != 0) sword = "," + sword;
+}
+
+int TellMeTheHour(){return GAME->TellMeHour();}
+int TellMeTheMin(){return GAME->TellMeMin();}
 
 int main(){
     int t, round = 1, i;
