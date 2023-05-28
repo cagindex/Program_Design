@@ -76,6 +76,7 @@ class warrior
     public:
         warrior(char _f, int _id = 0, int _health = 0, int _atk = 0):id(_id),health(_health),atk(_atk),flag(_f){}
         warrior(const warrior& other){id = other.id; health = other.health; atk = other.atk; flag = other.flag;}
+        virtual ~warrior(){}
         void ChangeHealth(int i) {health += i;}
         void ChangeHealthTo(int h) {health = h;}
         int TellMeYourHealth(){return health;}
@@ -141,6 +142,7 @@ class weapon
     public:
         weapon(int _atk = 0):atk(_atk){}
         weapon(const weapon& other){atk = other.atk;}
+        virtual ~weapon(){}
         int& GiveMeYourAtk() {return atk;}
         int CheckWeapon()
         {
@@ -181,6 +183,7 @@ class dragon : public warrior
             if(other.weapon_dragon == nullptr) weapon_dragon = nullptr;
             else weapon_dragon = other.weapon_dragon->Clone();
         }
+        ~dragon(){if(weapon_dragon != nullptr) delete weapon_dragon;}
         virtual double TellMeYourMorale(){return morale;}
         virtual void ChangeMorale(double i){morale += i;}
         virtual bool IsDragon() {return true;};
@@ -248,6 +251,7 @@ class ninja : public warrior
             if(other.weapon_ninja2 == nullptr) weapon_ninja2 = nullptr;
             else weapon_ninja2 = other.weapon_ninja2->Clone();
         }
+        ~ninja(){if(weapon_ninja1 != nullptr) delete weapon_ninja1; if(weapon_ninja2 != nullptr) delete weapon_ninja2;}
         virtual bool IsDragon() {return false;};
         virtual bool IsNinja() {return true;}
         virtual bool IsIceman() {return false;}
@@ -319,6 +323,7 @@ class iceman : public warrior
             if(other.weapon_iceman == nullptr) weapon_iceman = nullptr;
             else weapon_iceman = other.weapon_iceman->Clone();
         }
+        ~iceman(){if(weapon_iceman != nullptr) delete weapon_iceman;}
         virtual bool IsDragon() {return false;};
         virtual bool IsNinja() {return false;}
         virtual bool IsIceman() {return true;}
@@ -373,6 +378,7 @@ class lion : public warrior
             BornReport(_f, _id, 0.0, loyalty);
         }
         lion(const lion& other):warrior(other){loyalty = other.loyalty;}
+        ~lion(){}
         virtual bool IsDragon() {return false;};
         virtual bool IsNinja() {return false;}
         virtual bool IsIceman() {return false;}
@@ -420,6 +426,7 @@ class wolf : public warrior
                 else weapon_wolf[i] = other.weapon_wolf[i]->Clone();
             }
         }
+        ~wolf(){ for(int i = 0; i < 3; ++i)if(weapon_wolf[i] != nullptr) delete weapon_wolf[i];}
         virtual bool IsDragon() {return false;};
         virtual bool IsNinja() {return false;}
         virtual bool IsIceman() {return false;}
@@ -1019,8 +1026,8 @@ class gameMap
             int& buff_flag = city->GiveMeBuffFlag();
             int& city_flag = city->GiveMeCityFlag();
             if(buff_flag == 0){if(flag == "red") buff_flag = -1; else buff_flag = 1;}
-            else if(buff_flag = 1){if(flag == "blue" && city_flag == -1) city_flag = 1; else if(flag == "red") buff_flag = 0;}
-            else if(buff_flag = -1){if(flag == "red" && city_flag == 1) city_flag = -1; else if(flag == "blue") buff_flag = 0;}
+            else if(buff_flag == 1){if(flag == "blue" && city_flag == -1) city_flag = 1; else if(flag == "red") buff_flag = 0;}
+            else if(buff_flag == -1){if(flag == "red" && city_flag == 1) city_flag = -1; else if(flag == "blue") buff_flag = 0;}
         }
         void AfterEqualBattle(warrior* first_warrior, warrior* next_warrior, baseCity* city)
         {
@@ -1040,7 +1047,7 @@ class gameMap
             printf("%03d:%02d %s %s %d attacked %s %s %d in city %d with %d elements and force %d\n", hour, min,
                     first_flag.c_str(), first_name.c_str(), first_id+1,
                     next_flag.c_str(), next_name.c_str(), next_id+1,
-                    first_warrior->health, first_warrior->atk);
+                    city->position, first_warrior->health, first_warrior->atk);
         }
         void NextAttack(warrior* first_warrior, warrior* next_warrior, baseCity* city)
         {
@@ -1051,7 +1058,7 @@ class gameMap
             int pos = city->TellMeThePos();
             printf("%03d:%02d %s %s %d fought back against %s %s %d in city %d\n", hour, min,
                     first_flag.c_str(), first_name.c_str(), first_id+1,
-                    next_flag.c_str(), next_name.c_str(), next_id+1);
+                    next_flag.c_str(), next_name.c_str(), next_id+1, city->position);
         }
         void WarriorDie(warrior* this_warrior, baseCity* city)
         {
