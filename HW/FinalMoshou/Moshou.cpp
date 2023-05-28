@@ -9,6 +9,7 @@
 完成ClaimCityHealth模块
 完成HeadquarterReport模块
 完成ArrowAttack模块
+完成WarriorReport模块
 *****************************/
 #include<iostream>
 #include<cstring>
@@ -51,8 +52,11 @@ std::map<string, int> warrior_set_reverse =
  * basic function declartion
 */
 void BornReport(char flag, int id, double morale = 0.0, int loyalty = 0);
+void AssignWarriorValue(warrior*, string&, string&, int&);
 void CreateWeapon(warrior*, weapon*&, int);
 void TransformWeaponReport(string&, string&, string&);
+void UseArrowReport(warrior* user, warrior* other);
+void UseBombReport(warrior* user, warrior* other);
 int TellMeTheHour();
 int TellMeTheMin();
 
@@ -69,11 +73,16 @@ class warrior
         warrior(char _f, int _id = 0, int _health = 0, int _atk = 0):id(_id),health(_health),atk(_atk),flag(_f){}
         void ChangeHealth(int i) {health += i;}
         void ChangeHealthTo(int h) {health = h;}
+        int TellMeYourHealth(){return health;}
+        virtual bool IsNinja() = 0;
         virtual int TellMeYourLoyalty() {return 1;};
         virtual bool HasArrow() = 0;
+        virtual bool HasBomb() = 0;
+        virtual bool CheckBomb(warrior* other_warrior, baseCity* this_city) = 0;
         virtual void UseArrow(warrior* other_warrior) = 0;
         virtual void ReportYourWeapon() = 0;
         friend void CreateWeapon(warrior*, weapon*&, int);
+        friend void AssignWarriorValue(warrior*, string&, string&, int&);
         friend class gameMap;
 };
 
@@ -86,8 +95,10 @@ class baseCity
         warrior* warrior_blue = nullptr;
     public:
         baseCity(int _pos = 0):position(_pos){}
+        int TellMeThePos() {return position;}
         virtual int TellMeTheHealth() = 0;
         virtual void ChangeHealth(int i) = 0;
+        virtual int TellMeCityFlag() {return 0x1111;}
         virtual warrior*& GetTheOtherPosition() {std::cerr << "GetTheOtherPosition called error" << endl;return warrior_red;}
         virtual warrior* TellMeTheOtherPosition() {std::cerr << "GetTheOtherPosition called error" << endl;return warrior_red;}
         virtual int& TellMeNowIndex() {return position;}
@@ -137,13 +148,21 @@ class dragon : public warrior
             CreateWeapon(this, weapon_dragon, _id%3);
             BornReport(_f, _id, morale);
         }
+        virtual bool IsNinja() {return false;}
         virtual bool HasArrow() {if(weapon_dragon->IsArrow()) return true; return false;}
+        virtual bool HasBomb() {if(weapon_dragon->IsBomb()) return true; return false;}
         virtual void UseArrow(warrior* other_warrior)
         {
             if(weapon_dragon->IsArrow())
             {
                 weapon_dragon->Attack(other_warrior);
             }
+        }
+        virtual bool CheckBomb(warrior* other_warrior, baseCity* this_city)
+        {
+            char winner;
+            if (flag == 'R'){winner = SimulateBattle(this, other_warrior, this_city); if(winner == 'R') return true; else return false;}
+            else{winner = SimulateBattle(other_warrior, this, this_city); if(winner == 'B') return true; else return false;}
         }
         virtual void ReportYourWeapon()
         {
@@ -170,7 +189,9 @@ class ninja : public warrior
             CreateWeapon(this, weapon_ninja1, (_id+1)%3);
             BornReport(_f, _id);
         }
+        virtual bool IsNinja() {return true;}
         virtual bool HasArrow() {if(weapon_ninja1->IsArrow() || weapon_ninja2->IsArrow()) return true; return false;}
+        virtual bool HasBomb() {if(weapon_ninja1->IsBomb() || weapon_ninja2->IsBomb()) return true; return false;}
         virtual void UseArrow(warrior* other_warrior)
         {
             if(weapon_ninja1->IsArrow())
@@ -218,7 +239,9 @@ class iceman : public warrior
             CreateWeapon(this, weapon_iceman, _id%3);
             BornReport(_f, _id);
         }
+        virtual bool IsNinja() {return false;}
         virtual bool HasArrow() {if(weapon_iceman->IsArrow()) return true; return false;}
+        virtual bool HasBomb() {if(weapon_iceman->IsBomb()) return true; return false;}
         virtual void UseArrow(warrior* other_warrior)
         {
             if(weapon_iceman->IsArrow())
@@ -248,8 +271,10 @@ class lion : public warrior
         {
             BornReport(_f, _id, 0.0, loyalty);
         }
+        virtual bool IsNinja() {return false;}
         virtual int TellMeYourLoyalty() {return loyalty;}
         virtual bool HasArrow() {return false;}
+        virtual bool HasBomb() {return false;}
         virtual void UseArrow(warrior* other_warrior){}
         virtual void ReportYourWeapon()
         {
@@ -270,7 +295,9 @@ class wolf : public warrior
             for(int i = 0; i < 3; ++i) weapon_wolf[i] = nullptr;
             BornReport(_f, _id);
         }
+        virtual bool IsNinja() {return false;}
         virtual bool HasArrow() {if(weapon_wolf[1] != nullptr) return true; return false;}
+        virtual bool HasBomb() {if(weapon_wolf[2] != nullptr) return true; return false;}
         virtual void UseArrow(warrior* other_warrior)
         {
             if(weapon_wolf[1] != nullptr)
@@ -296,7 +323,7 @@ class wolf : public warrior
             };
             for(int i = 0; i < 3; i++) Allocate(weapon_wolf[i]);
             if(arrow.length() == 0 && bomb.length() == 0 && sword.length() == 0)
-            {printf("%03d:%02d %s wolf has no weapon\n", hour, min, f.c_str(), id+1);return;}
+            {printf("%03d:%02d %s wolf %d has no weapon\n", hour, min, f.c_str(), id+1);return;}
             TransformWeaponReport(arrow, bomb, sword);
             tmp = arrow+bomb+sword;
             printf("%03d:%02d %s wolf %d has %s\n", hour, min, f.c_str(), id+1, tmp.c_str());
@@ -315,6 +342,7 @@ class city : public baseCity
         virtual int TellMeTheHealth() {return city_health;}
         virtual void ChangeHealth(int i) {city_health += i;}
         virtual bool IsHeadquater() {return false;}
+        virtual int TellMeCityFlag() {return city_flag;}
 };
 
 // headquarter class for both side
@@ -519,20 +547,41 @@ class gameMap
             for(i = N-1; i > 0; --i)
             {
                 if(citys[i+1]->warrior_blue != nullptr && citys[i]->warrior_red != nullptr)
-                    if(citys[i]->warrior_red->HasArrow()) citys[i]->warrior_red->UseArrow(citys[i+1]->warrior_blue);
+                    if(citys[i]->warrior_red->HasArrow())
+                    {
+                        citys[i]->warrior_red->UseArrow(citys[i+1]->warrior_blue);
+                        UseArrowReport(citys[i]->warrior_red, citys[i+1]->warrior_blue);
+                    }
             }
             //For blue
             for(i = 2; i < N+1; ++i)
             {
                 if(citys[i-1]->warrior_red != nullptr && citys[i]->warrior_blue != nullptr)
-                    if(citys[i]->warrior_blue->HasArrow()) citys[i]->warrior_blue->UseArrow(citys[i-1]->warrior_red);
+                    if(citys[i]->warrior_blue->HasArrow())
+                    {
+                        citys[i]->warrior_blue->UseArrow(citys[i-1]->warrior_red);
+                        UseArrowReport(citys[i]->warrior_blue, citys[i-1]->warrior_red);
+                    }
             }
         }
 
         //Use bomb
         void UseBomb()
         {
-
+            for(int i = 1; i < N+1; ++i)
+            {
+                if(citys[i]->warrior_red == nullptr || citys[i]->warrior_blue == nullptr) continue;
+                if(citys[i]->warrior_red->HasBomb() && citys[i]->warrior_red->CheckBomb(citys[i]->warrior_blue))
+                {
+                    citys[i]->warrior_red->UseBomb(citys[i]->warrior_blue);
+                    UseBombReport(citys[i]->warrior_red, citys[i]->warrior_blue);
+                }
+                if(citys[i]->warrior_blue->HasBomb() && citys[i]->warrior_blue->CheckBomb(citys[i]->warrior_red))
+                {
+                    citys[i]->warrior_blue->UseBomb(citys[i]->warrior_red);
+                    UseBombReport(citys[i]->warrior_blue, citys[i]->warrior_red);
+                }
+            }
         }
 
         //battle start
@@ -819,6 +868,7 @@ class gameMap
         }
 
         friend void BornReport(char flag, int id, double morale, int loyalty);
+        friend void AssignWarriorValue(warrior*, string&, string&, int&); 
 };
 
 /**
@@ -839,6 +889,13 @@ void BornReport(char flag, int id, double morale, int loyalty)
 #endif
 }
 
+void AssignWarriorValue(warrior* this_warrior, string& flag, string& name, int& id)
+{
+    id = this_warrior->id;
+    if(this_warrior->flag == 'R'){name = (GAME->red_headquarter_warrior)[id%warrior_kind]; flag = "red";}
+    if(this_warrior->flag == 'B'){name = (GAME->blue_headquarter_warrior)[id%warrior_kind]; flag = "blue";}
+}
+
 void CreateWeapon(warrior* warrior_pointer, weapon*& weapon_pointer, int id)
 {
     gameMap::CreateWeapon(warrior_pointer, weapon_pointer, id);
@@ -848,6 +905,33 @@ void TransformWeaponReport(string& arrow, string& bomb, string& sword)
 {
     if(arrow.length() != 0 && bomb.length() != 0) bomb = "," + bomb;
     if((arrow.length() != 0 || bomb.length() != 0) && sword.length() != 0) sword = "," + sword;
+}
+
+void UseArrowReport(warrior* user, warrior* other)
+{
+    int hour = TellMeTheHour(), min = TellMeTheMin(), id;
+    string name, f;
+    AssignWarriorValue(user, f, name, id);
+    if(other->TellMeYourHealth() > 0) printf("%03d:%02d %s %s %d shot\n", hour, min, f.c_str(), name.c_str(), id+1);
+    else
+    {
+        string other_name, other_f;
+        int other_id;
+        AssignWarriorValue(other, other_f, other_name, other_id);
+        printf("%03d:%02d %s %s %d shot and killed %s %s %d\n", hour, min, f.c_str(), name.c_str(), id+1, other_f.c_str(), other_name.c_str(), other_id + 1);
+    }
+}
+void UseBombReport(warrior* user, warrior* other)
+{
+
+    int hour = TellMeTheHour(), min = TellMeTheMin();
+    int user_id, other_id;
+    string user_flag, user_name, other_flag, other_name;
+    AssignWarriorValue(user, user_flag, user_name, user_id);
+    AssignWarriorValue(other, other_flag, other_name, other_id);
+    printf("%03d:%02d %s %s %d used a bomb and killed %s %s %d\n", hour, min, 
+            user_flag.c_str(), user_name.c_str(), user_id,
+            other_flag.c_str(), other_name.c_str(), other_id);
 }
 
 int TellMeTheHour(){return GAME->TellMeHour();}

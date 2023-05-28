@@ -6,21 +6,15 @@ using namespace std;
 class A{
     public:
         int a = 3;
-        virtual void show(){cout << "this is A" << endl;}
+        A(){}
+        A(const A& b){cout << "copy constructor called" << endl;}
 };
-
-class B : public A
-{
-    public:
-        virtual void show()
-        {
-            [](int a){cout << "this is in B" << endl; cout << a << endl;}(1);
-            cout << "this is B" << endl;
-        }
-};
+void innerChange(A* b){b->a = 4;}
+void change(A b){innerChange(&b); cout << "this is b" << b.a << endl;}
 
 int main(){
-    A* a = new B();
-    a->show();
+    A a;
+    change(a);
+    cout << a.a << endl;
     return 0;
 }
