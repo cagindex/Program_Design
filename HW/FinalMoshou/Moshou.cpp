@@ -10,14 +10,15 @@
 完成HeadquarterReport模块
 完成ArrowAttack模块
 完成WarriorReport模块
+完成大体的框架
 *****************************/
 #include<iostream>
 #include<cstring>
 #include<map>
 #include<iomanip>
 #define INTMAX 0x7fffffff
-// #define DEBUG
-// #define MUTE
+#define DEBUG
+#define MUTE
 using std::cout;
 using std::cin;
 using std::endl;
@@ -57,6 +58,7 @@ void CreateWeapon(warrior*, weapon*&, int);
 void TransformWeaponReport(string&, string&, string&);
 void UseArrowReport(warrior* user, warrior* other);
 void UseBombReport(warrior* user, warrior* other);
+char SimulateBattle(warrior* red_warrior, warrior* blue_warrior, baseCity* city);
 int TellMeTheHour();
 int TellMeTheMin();
 
@@ -71,6 +73,7 @@ class warrior
         char flag;
     public:
         warrior(char _f, int _id = 0, int _health = 0, int _atk = 0):id(_id),health(_health),atk(_atk),flag(_f){}
+        warrior(const warrior& other){id = other.id; health = other.health; atk = other.atk; flag = other.flag;}
         void ChangeHealth(int i) {health += i;}
         void ChangeHealthTo(int h) {health = h;}
         int TellMeYourHealth(){return health;}
@@ -81,6 +84,7 @@ class warrior
         virtual bool CheckBomb(warrior* other_warrior, baseCity* this_city) = 0;
         virtual void UseArrow(warrior* other_warrior) = 0;
         virtual void ReportYourWeapon() = 0;
+        virtual warrior* Clone() = 0;
         friend void CreateWeapon(warrior*, weapon*&, int);
         friend void AssignWarriorValue(warrior*, string&, string&, int&);
         friend class gameMap;
@@ -114,6 +118,7 @@ class weapon
         int atk;
     public:
         weapon(int _atk = 0):atk(_atk){}
+        weapon(const weapon& other){atk = other.atk;}
         int& GiveMeYourAtk() {return atk;}
         int CheckWeapon()
         {
@@ -125,6 +130,7 @@ class weapon
         virtual bool IsArrow() = 0;
         virtual bool IsSword() = 0;
         virtual bool IsBomb() = 0;
+        virtual weapon* Clone() = 0;
         virtual int TellMeYourDurity() {return atk;}
         virtual void Attack(warrior* other_warrior) = 0;
 };
@@ -147,6 +153,11 @@ class dragon : public warrior
         {
             CreateWeapon(this, weapon_dragon, _id%3);
             BornReport(_f, _id, morale);
+        }
+        dragon(const dragon& other):warrior(other){
+            morale = other.morale;
+            if(other.weapon_dragon == nullptr) weapon_dragon = nullptr;
+            else weapon_dragon = other.weapon_dragon->Clone();
         }
         virtual bool IsNinja() {return false;}
         virtual bool HasArrow() {if(weapon_dragon->IsArrow()) return true; return false;}
@@ -175,6 +186,7 @@ class dragon : public warrior
             else if(weapon_dragon->IsSword()){printf("%s dragon %d has sword(%d)\n", f.c_str(), id+1, weapon_dragon->GiveMeYourAtk());}
             else if(weapon_dragon->IsBomb()){printf("%s dragon %d has bomb\n", f.c_str(), id+1);}
         }
+        virtual warrior* Clone(){ warrior* p = new dragon(*this); return p;}
 };
 
 class ninja : public warrior
@@ -188,6 +200,12 @@ class ninja : public warrior
             CreateWeapon(this, weapon_ninja1, _id%3);
             CreateWeapon(this, weapon_ninja1, (_id+1)%3);
             BornReport(_f, _id);
+        }
+        ninja(const ninja& other):warrior(other){
+            if(other.weapon_ninja1 == nullptr) weapon_ninja1 = nullptr;
+            else weapon_ninja1 = other.weapon_ninja1->Clone();
+            if(other.weapon_ninja2 == nullptr) weapon_ninja2 = nullptr;
+            else weapon_ninja2 = other.weapon_ninja2->Clone();
         }
         virtual bool IsNinja() {return true;}
         virtual bool HasArrow() {if(weapon_ninja1->IsArrow() || weapon_ninja2->IsArrow()) return true; return false;}
@@ -227,6 +245,7 @@ class ninja : public warrior
             tmp = arrow+bomb+sword;
             printf("%03d:%02d %s ninja %d has %s\n", hour, min, f.c_str(), id+1, tmp.c_str());
         }
+        virtual warrior* Clone(){ warrior* p = new ninja(*this); return p;}
 };
 
 class iceman : public warrior
@@ -238,6 +257,10 @@ class iceman : public warrior
         {
             CreateWeapon(this, weapon_iceman, _id%3);
             BornReport(_f, _id);
+        }
+        iceman(const iceman& other):warrior(other){
+            if(other.weapon_iceman == nullptr) weapon_iceman = nullptr;
+            else weapon_iceman = other.weapon_iceman->Clone();
         }
         virtual bool IsNinja() {return false;}
         virtual bool HasArrow() {if(weapon_iceman->IsArrow()) return true; return false;}
@@ -260,6 +283,7 @@ class iceman : public warrior
             else if(weapon_iceman->IsSword()){printf("%s iceman %d has sword(%d)\n", f.c_str(), id+1, weapon_iceman->GiveMeYourAtk());}
             else if(weapon_iceman->IsBomb()){printf("%s iceman %d has bomb\n", f.c_str(), id+1);}
         }
+        virtual warrior* Clone(){warrior* p = new iceman(*this); return p;}
 };
 
 class lion : public warrior
@@ -271,6 +295,7 @@ class lion : public warrior
         {
             BornReport(_f, _id, 0.0, loyalty);
         }
+        lion(const lion& other):warrior(other){loyalty = other.loyalty;}
         virtual bool IsNinja() {return false;}
         virtual int TellMeYourLoyalty() {return loyalty;}
         virtual bool HasArrow() {return false;}
@@ -282,6 +307,7 @@ class lion : public warrior
             string f = ((flag == 'R') ? "red" : "blue");
             printf("%03d:%02d %s lion %d has no weapon\n", hour, min, f.c_str(), id+1);
         }
+        virtual warrior* Clone(){warrior* p = new lion(*this); return p;}
 };
 
 class wolf : public warrior
@@ -294,6 +320,14 @@ class wolf : public warrior
             weapon_wolf = new weapon*[3];
             for(int i = 0; i < 3; ++i) weapon_wolf[i] = nullptr;
             BornReport(_f, _id);
+        }
+        wolf(const wolf& other):warrior(other)
+        {
+            weapon_wolf = new weapon*[3];
+            for(int i = 0; i < 3; ++i){
+                if(other.weapon_wolf[i] == nullptr) weapon_wolf[i] = nullptr;
+                else weapon_wolf[i] = other.weapon_wolf[i]->Clone();
+            }
         }
         virtual bool IsNinja() {return false;}
         virtual bool HasArrow() {if(weapon_wolf[1] != nullptr) return true; return false;}
@@ -328,6 +362,7 @@ class wolf : public warrior
             tmp = arrow+bomb+sword;
             printf("%03d:%02d %s wolf %d has %s\n", hour, min, f.c_str(), id+1, tmp.c_str());
         }
+        virtual warrior* Clone(){warrior* p = new wolf(*this); return p;}
 };
 
 // city class
@@ -369,6 +404,7 @@ class sword : public weapon
 {
     public:
         sword(int _atk):weapon((int)(_atk/5)){}
+        sword(const sword& other):weapon(other){}
         virtual bool IsSword() {return true;}
         virtual bool IsArrow() {return false;}
         virtual bool IsBomb() {return false;}
@@ -378,6 +414,7 @@ class sword : public weapon
             other_warrior->ChangeHealth(-1*now_atk);
             now_atk = now_atk*4/5;
         }
+        virtual weapon* Clone(){weapon* p = new sword(*this); return p;}
 };
 
 class arrow : public weapon
@@ -386,6 +423,7 @@ class arrow : public weapon
         int durity;
     public:
         arrow(int __durity, int _atk):durity(__durity),weapon(_atk){}
+        arrow(const arrow& other):weapon(other){durity = other.durity;}
         virtual bool IsArrow() {return true;}
         virtual bool IsSword() {return false;}
         virtual bool IsBomb() {return false;}
@@ -396,6 +434,7 @@ class arrow : public weapon
             other_warrior->ChangeHealth(-1*now_atk);
             durity -= 1;
         }
+        virtual weapon* Clone(){weapon* p = new arrow(*this); return p;}
 };
 
 class bomb : public weapon
@@ -404,6 +443,7 @@ class bomb : public weapon
         int durity = 1;
     public:
         bomb():weapon(INTMAX){}
+        bomb(const bomb& other):weapon(other){durity = other.durity;}
         virtual bool IsArrow() {return false;}
         virtual bool IsSword() {return false;}
         virtual bool IsBomb() {return true;}
@@ -413,6 +453,7 @@ class bomb : public weapon
             other_warrior->ChangeHealthTo(0);
             durity--;
         }
+        virtual weapon* Clone(){weapon* p = new bomb(*this); return p;}
 };
 /**
  * Derived class end
@@ -587,7 +628,8 @@ class gameMap
         //battle start
         void StartBattle()
         {
-
+            for(int i = 1; i < N+1; ++i)
+                if(citys[i]->warrior_red != nullptr && citys[i]->warrior_blue != nullptr) StartBattle(warrior_red, warrior_blue, citys[i], 1);
         }
 
         //Headquarter report its health
@@ -723,11 +765,10 @@ class gameMap
         {
         #ifdef MUTE
         #else
-            string f, name;
-            if(this_warrior->flag == 'R'){f = "red"; name = red_headquarter_warrior[(this_warrior->id)%warrior_kind];}
-            else if(this_warrior->flag == 'B'){f = "blue"; name = blue_headquarter_warrior[(this_warrior->id)%warrior_kind];}
+            string f, name; int id;
+            AssignWarriorValue(this_warrior, f, name, id); id++;
             printf("%03d:%02d %s %s %d marched to city %d with %d elements and force %d\n",
-            hour, min, f.c_str(), name.c_str(), (this_warrior->id)+1, this_city->position, this_warrior->health, this_warrior->atk);
+            hour, min, f.c_str(), name.c_str(), id, this_city->position, this_warrior->health, this_warrior->atk);
         #endif
         }
         inline void __MoveReportRed(warrior* this_warrior)
@@ -789,13 +830,47 @@ class gameMap
         {
         #ifdef MUTE
         #else
-            string f, name;
-            int id; 
-            if(this_warrior->flag == 'R'){f = "red"; name = red_headquarter_warrior[(this_warrior->id)%warrior_kind];}
-            else{f = "blue"; name = blue_headquarter_warrior[(this_warrior->id)%warrior_kind];}
-            id = (this_warrior->id) + 1;
+            AssignWarriorValue(this_warrior, f, name, id);
+            id++;
             printf("%03d:%02d %s %s %d earned %d elements for his headquarter\n", hour, min, f.c_str(), name.c_str(), id, earn_elements);
         #endif
+        }
+
+        char SimulateBattle(warrior* red_warrior, warrior* blue_warrior, baseCity* city)
+        {
+            return StartBattle(red_warrior->Clone(), blue_warrior->Clone(), city, 0);
+        }
+
+        bool CheckFirst(baseCity* city){
+            if(city->TellMeCityFlag() == -1 || (city->TellMeCityFlag() == 0 && city->TellMeThePos() % 2 == 1))
+                return true;
+            return false;
+        }
+
+        char StartBattle(warrior* red_warrior, warrior* blue_warrior, baseCity* city, bool reportValue)
+        {
+            if(red_warrior->TellMeYourHealth() <= 0){if(reportValue) AfterBattle(blue_warrior, red_warrior, city); return 'B';}
+            if(blue_warrior->TellMeYourHealth() <= 0){if(reportValue) AfterBattle(red_warrior, blue_warrior, city); return 'R';}
+
+            warrior* first_warrior, next_warrior;
+            if(CheckFirst(city)){first_warrior = red_warrior; next_warrior = blue_warrior;}
+            else{first_warrior = blue_warrior; next_warrior = red_warrior;}
+            
+            if(reportValue) FirstAttack(first_warrior, next_warrior, city);
+            first_warrior->Attack(next_warrior);
+            if(next_warrior->TellMeYourHealth() <= 0){if(reportValue){WarriorDie(next_warrior, city); AfterBattle(first_warrior, next_warrior, city);} return first_warrior->flag;}
+            if(next_warrior->IsNinja()) return '0';
+            if(reportValue) NextAttack(next_warrior, first_warrior, city);
+            next_warrior->FightBack(red_warrior);
+            if(first_warrior->TellMeYourHealth() <= 0){if(reportValue){WarriorDie(first_warrior, city); AfterBattle(next_warrior, next_warrior, city);} return next_warrior->flag;}
+            return '0';
+        }
+
+        void AssignWarriorValue(warrior* this_warrior, string& flag, string& name, int& id)
+        {
+            id = this_warrior->id;
+            if(this_warrior->flag == 'R'){name = (red_headquarter_warrior)[id%warrior_kind]; flag = "red";}
+            if(this_warrior->flag == 'B'){name = (blue_headquarter_warrior)[id%warrior_kind]; flag = "blue";}
         }
 
         static void CreateWeapon(warrior* warrior_pointer, weapon*& weapon_pointer, int id)
@@ -889,12 +964,7 @@ void BornReport(char flag, int id, double morale, int loyalty)
 #endif
 }
 
-void AssignWarriorValue(warrior* this_warrior, string& flag, string& name, int& id)
-{
-    id = this_warrior->id;
-    if(this_warrior->flag == 'R'){name = (GAME->red_headquarter_warrior)[id%warrior_kind]; flag = "red";}
-    if(this_warrior->flag == 'B'){name = (GAME->blue_headquarter_warrior)[id%warrior_kind]; flag = "blue";}
-}
+void AssignWarriorValue(warrior* this_warrior, string& flag, string& name, int& id){GAME->AssignWarriorValue(this_warrior, flag, name, id);}
 
 void CreateWeapon(warrior* warrior_pointer, weapon*& weapon_pointer, int id)
 {
@@ -932,6 +1002,11 @@ void UseBombReport(warrior* user, warrior* other)
     printf("%03d:%02d %s %s %d used a bomb and killed %s %s %d\n", hour, min, 
             user_flag.c_str(), user_name.c_str(), user_id,
             other_flag.c_str(), other_name.c_str(), other_id);
+}
+
+char SimulateBattle(warrior* red_warrior, warrior* blue_warrior, baseCity* city)
+{
+    return GAME->SimulateBattle(warrior* red_warrior, blue_warrior, city);
 }
 
 int TellMeTheHour(){return GAME->TellMeHour();}
